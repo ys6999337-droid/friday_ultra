@@ -2,39 +2,64 @@ import streamlit as st
 import pandas as pd
 import yfinance as yf
 
-st.set_page_config(page_title="FRIDAY ULTRA", layout="centered")
+st.set_page_config(page_title="FRIDAY ULTRA PRO", layout="centered")
 
-st.title("🚀 FRIDAY ULTRA AI")
-st.write("Live Crypto Signal Dashboard")
+st.title("🚀 FRIDAY ULTRA AI PRO")
+st.write("Advanced Live Crypto Signal Dashboard")
 
-symbol = "BTC-USD"
+# ---- Coin Selection ----
+coin = st.selectbox("Select Coin", ["BTC-USD", "ETH-USD", "SOL-USD"])
 
-@st.cache_data(ttl=300)
-def get_data():
-    df = yf.download(symbol, period="2d", interval="15m", progress=False)
+@st.cache_data(ttl=120)
+def get_data(symbol):
+    df = yf.download(symbol, period="3d", interval="15m", progress=False)
     df = df.reset_index()
     return df
 
-if st.button("Get Live Signal"):
-    try:
-        df = get_data()
+# ---- RSI Function ----
+def calculate_rsi(data, period=14):
+    delta = data.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(period).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(period).mean()
+    rs = gain / loss
+    return 100 - (100 / (1 + rs))
 
-        if df.empty:
-            st.error("No Data Received")
+if st.button("Generate Signal"):
+    df = get_data(coin)
+
+    if df.empty:
+        st.error("No data received")
+    else:
+        df["EMA9"] = df["Close"].ewm(span=9).mean()
+        df["EMA21"] = df["Close"].ewm(span=21).mean()
+        df["RSI"] = calculate_rsi(df["Close"])
+
+        ema9 = df["EMA9"].iloc[-1]
+        ema21 = df["EMA21"].iloc[-1]
+        rsi = df["RSI"].iloc[-1]
+        price = df["Close"].iloc[-1]
+
+        # ---- Smart Logic ----
+        if ema9 > ema21 and rsi > 55:
+            signal = "🔥 STRONG BUY"
+            confidence = 85
+            st.success(signal)
+        elif ema9 > ema21:
+            signal = "BUY"
+            confidence = 65
+            st.success(signal)
+        elif ema9 < ema21 and rsi < 45:
+            signal = "🚨 STRONG SELL"
+            confidence = 85
+            st.error(signal)
         else:
-            df["EMA9"] = df["Close"].ewm(span=9).mean()
-            df["EMA21"] = df["Close"].ewm(span=21).mean()
+            signal = "SELL"
+            confidence = 60
+            st.error(signal)
 
-            ema9 = df["EMA9"].iloc[-1]
-            ema21 = df["EMA21"].iloc[-1]
-            price = df["Close"].iloc[-1]
+        st.write("### 💰 Last Price:", round(price,2))
+        st.write("### 📊 RSI:", round(rsi,2))
+        st.write("### 🎯 Confidence:", f"{confidence}%")
 
-            if float(ema9) > float(ema21):
-                st.success("BUY SIGNAL")
-            else:
-                st.error("SELL SIGNAL")
-
-            st.write("Last Price:", round(float(price), 2))
-
-    except Exception as e:
-        st.error("Error: " + str(e))
+        # ---- Chart ----
+        st.line_chart(df.set_index("Datetime")[["Close","EMA9","EMA21"]])
