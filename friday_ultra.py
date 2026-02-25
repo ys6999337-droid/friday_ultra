@@ -1,42 +1,34 @@
 import streamlit as st
 import pandas as pd
-import requests
+import yfinance as yf
 
 st.set_page_config(page_title="FRIDAY ULTRA", layout="centered")
 
 st.title("🚀 FRIDAY ULTRA AI")
 st.write("Live Crypto Signal Dashboard")
 
-symbol = "BTCUSDT"
+symbol = "BTC-USD"
 
 @st.cache_data(ttl=300)
 def get_data():
-    url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval=15m&limit=100"
-    data = requests.get(url).json()
-    df = pd.DataFrame(data, columns=[
-        "time","open","high","low","close","volume",
-        "_","_","_","_","_","_"
-    ])
-    df["close"] = df["close"].astype(float)
-    return df
+    data = yf.download(symbol, period="2d", interval="15m")
+    return data
 
 if st.button("Get Live Signal"):
     try:
         df = get_data()
 
-        df["ema9"] = df["close"].ewm(span=9).mean()
-        df["ema21"] = df["close"].ewm(span=21).mean()
+        df["EMA9"] = df["Close"].ewm(span=9).mean()
+        df["EMA21"] = df["Close"].ewm(span=21).mean()
 
         latest = df.iloc[-1]
 
-        if latest["ema9"] > latest["ema21"]:
-            signal = "BUY"
+        if latest["EMA9"] > latest["EMA21"]:
             st.success("BUY")
         else:
-            signal = "SELL"
             st.error("SELL")
 
-        st.write("Last Price:", round(latest["close"],2))
+        st.write("Last Price:", round(latest["Close"],2))
 
-    except:
-        st.error("Data fetch error")
+    except Exception as e:
+        st.error("Still Error: " + str(e))
