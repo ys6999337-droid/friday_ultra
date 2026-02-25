@@ -61,5 +61,15 @@ if st.button("Generate Signal"):
         st.write("### 📊 RSI:", round(rsi,2))
         st.write("### 🎯 Confidence:", f"{confidence}%")
 
-        # ---- Chart ----
-        st.line_chart(df.set_index("Datetime")[["Close","EMA9","EMA21"]])
+        # ---- Chart Safe Version ----
+try:
+    if "Datetime" in df.columns:
+        df_chart = df.set_index("Datetime")
+    elif "Date" in df.columns:
+        df_chart = df.set_index("Date")
+    else:
+        df_chart = df
+
+    st.line_chart(df_chart[["Close","EMA9","EMA21"]])
+except:
+    st.warning("Chart not available")
